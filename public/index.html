@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D萌打投实时曲线</title>
+    <script src="./static/chart.js"></script>
+    <script src="./static/chartjs-adapter-date-fns.js"></script>
+    <script src="./static/index.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+            color: #2c3e50;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            color: #3498db;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            gap: 20px;
+        }
+        
+        .stat-card {
+            flex: 1;
+            min-width: 250px;
+            text-align: center;
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .blue {
+            background: linear-gradient(135deg, #3498db, #1a5276);
+        }
+        
+        .red {
+            background: linear-gradient(135deg, #e74c3c, #922b21);
+        }
+        
+        .stat-value {
+            font-size: 2.8rem;
+            font-weight: bold;
+            margin: 15px 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .stat-label {
+            font-size: 1.3rem;
+            opacity: 0.9;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            height: 500px;
+            position: relative;
+            /* 添加内边距确保标签有足够空间 */
+            padding-bottom: 40px;
+        }
+        
+        .chart-title {
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        .last-update {
+            text-align: right;
+            color: #7f8c8d;
+            font-style: italic;
+            margin-top: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+            padding: 0 20px;
+        }
+        
+        .update-info {
+            font-size: 0.95rem;
+            color: #7f8c8d;
+            display: flex;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background-color: #2ecc71;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .stats {
+                flex-direction: column;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .stat-value {
+                font-size: 2.5rem;
+            }
+            
+            .chart-container {
+                height: 400px;
+                padding-bottom: 50px; /* 移动端增加更多底部空间 */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>D萌打投实时曲线</h1>
+            <div class="subtitle"></div>
+        </header>
+        
+        <div class="stats">
+            <div class="stat-card blue">
+                <div class="stat-value" id="blue-current">0</div>
+                <div class="stat-label">蓝色</div>
+            </div>
+            <div class="stat-card red">
+                <div class="stat-value" id="red-current">0</div>
+                <div class="stat-label">红色</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">蓝色PK红色</div>
+            <canvas id="salesChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">15分钟销量涨幅</div>
+            <canvas id="incrementChart"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="update-info">
+                <span class="status-indicator"></span>
+                <span id="last-update">最后更新: 加载中...</span>
+            </div>
+            <button class="btn" id="refresh-btn">立即刷新数据</button>
+        </div>
+    </div>
+
+    <footer>
+        <p>数据更新时间间隔: 5分钟 | 数据记录间隔: 15分钟 | 实时监控系统 v1.4</p>
+    </footer>
+
+    <script>
+        // 初始化销量趋势图表
+        const salesCtx = document.getElementById('salesChart').getContext('2d');
+        const salesChart = new Chart(salesCtx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: '蓝色款',
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#3498db',
+                        tension: 0,
+                        fill: true
+                    },
+                    {
+                        label: '红色款',
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#e74c3c',
+                        tension: 0,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y} 件`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'hour',
+                            displayFormats: {
+                                hour: 'HH:mm'
+                            },
+                            tooltipFormat: 'yyyy-MM-dd HH:mm'
+                        },
+                        title: {
+                            display: true,
+                            text: '时间',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 10
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            padding: 10
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '票数/销量',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 0,
+                                bottom: 10
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            padding: 10
+                        }
+                    }
+                },
+                layout: {
+                    padding: {
+                        left: 20,
+                        right: 20,
+                        top: 20,
+                        bottom: 40
+                    }
+                }
+            }
+        });
+        
+        // 初始化涨幅图表（曲线形式）
+        const incrementCtx = document.getElementById('incrementChart').getContext('2d');
+        const incrementChart = new Chart(incrementCtx, {
+            type: 'line', // 改为曲线形式
+            data: {
+                datasets: [
+                    {
+                        label: '蓝色款涨幅',
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#3498db',
+                        tension: 0.3, // 使用平滑曲线
+                        fill: false,
+                        // 使用虚线样式
+                        borderDash: [5, 5] 
+                    },
+                    {
+                        label: '红色款涨幅',
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#e74c3c',
+                        tension: 0.3, // 使用平滑曲线
+                        fill: false,
+                        // 使用虚线样式
+                        borderDash: [5, 5]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                return `${context.dataset.label}: ${value > 0 ? '+' + value : value} 件`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'hour',
+                            displayFormats: {
+                                hour: 'HH:mm'
+                            },
+                            tooltipFormat: 'yyyy-MM-dd HH:mm'
+                        },
+                        title: {
+                            display: true,
+                            text: '时间',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 10
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            padding: 10
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '票数/销量涨幅',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            padding: {
+                                top: 0,
+                                bottom: 10
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value > 0 ? '+' + value : value;
+                            },
+                            padding: 10
+                        }
+                    }
+                },
+                layout: {
+                    padding: {
+                        left: 20,
+                        right: 20,
+                        top: 20,
+                        bottom: 40
+                    }
+                }
+            }
+        });
+        
+        // 更新最后更新时间显示
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            document.getElementById('last-update').textContent = `最后更新: ${timeStr}`;
+        }
+        
+        // 获取数据并更新图表
+        function fetchData() {
+            // 显示加载状态
+            document.getElementById('last-update').textContent = '数据更新中...';
+            document.querySelector('.status-indicator').style.backgroundColor = '#f39c12';
+            
+            fetch('/data')
+                .then(response => {
+                    if (!response.ok) throw new Error('网络响应错误');
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('获取到的数据:', data);
+                    
+                    // 确保数据存在
+                    if (!data || !data.blue || !data.red) {
+                        throw new Error('数据格式不正确');
+                    }
+                    
+                    // 更新当前数值
+                    document.getElementById('blue-current').textContent = data.blue.current || 0;
+                    document.getElementById('red-current').textContent = data.red.current || 0;
+                    
+                    // 更新销量趋势图表
+                    salesChart.data.datasets[0].data = data.blue.sales.map((sales, index) => ({
+                        x: new Date(data.blue.timestamps[index]),
+                        y: sales
+                    }));
+                    
+                    salesChart.data.datasets[1].data = data.red.sales.map((sales, index) => ({
+                        x: new Date(data.red.timestamps[index]),
+                        y: sales
+                    }));
+                    
+                    salesChart.update();
+                    
+                    // 更新涨幅图表（曲线形式）
+                    if (data.blue_increment && data.red_increment) {
+                        incrementChart.data.datasets[0].data = data.blue_increment.increments.map((inc, index) => ({
+                            x: new Date(data.blue_increment.timestamps[index]),
+                            y: inc
+                        }));
+                        
+                        incrementChart.data.datasets[1].data = data.red_increment.increments.map((inc, index) => ({
+                            x: new Date(data.red_increment.timestamps[index]),
+                            y: inc
+                        }));
+                        
+                        incrementChart.update();
+                    }
+                    
+                    // 更新最后更新时间
+                    const updateTime = data.last_updated ? new Date(data.last_updated) : new Date();
+                    document.getElementById('last-update').textContent = 
+                        `最后更新: ${updateTime.toLocaleTimeString()}`;
+                    
+                    document.querySelector('.status-indicator').style.backgroundColor = '#2ecc71';
+                })
+                .catch(error => {
+                    console.error('获取数据失败:', error);
+                    document.getElementById('last-update').textContent = '数据加载失败，稍后重试...';
+                    document.querySelector('.status-indicator').style.backgroundColor = '#e74c3c';
+                    
+                    // 5秒后重试
+                    setTimeout(fetchData, 5000);
+                });
+        }
+        
+        // 初始加载数据
+        fetchData();
+        updateLastUpdateTime();
+        
+        // 每5分钟更新一次（与爬取间隔同步）
+        setInterval(fetchData, 300000);
+        
+        // 手动刷新按钮
+        document.getElementById('refresh-btn').addEventListener('click', fetchData);
+    </script>
+</body>
+</html>
