@@ -200,23 +200,23 @@
 <body>
     <div class="container">
         <header>
-            <h1>D萌打投实时曲线</h1>
+            <h1>舞台燃组第二轮第二场</h1>
             <div class="subtitle"></div>
         </header>
         
         <div class="stats">
             <div class="stat-card blue">
                 <div class="stat-value" id="blue-current">0</div>
-                <div class="stat-label">蓝色</div>
+                <div class="stat-label">《屋顶着火》</div>
             </div>
             <div class="stat-card red">
                 <div class="stat-value" id="red-current">0</div>
-                <div class="stat-label">红色</div>
+                <div class="stat-label">《我本俗人》</div>
             </div>
         </div>
         
         <div class="chart-container">
-            <div class="chart-title">蓝色PK红色</div>
+            <div class="chart-title">《屋顶着火》PK《我本俗人》 (最近150分钟数据)</div>
             <canvas id="salesChart"></canvas>
         </div>
         
@@ -246,7 +246,7 @@
             data: {
                 datasets: [
                     {
-                        label: '蓝色款',
+                        label: '《屋顶着火》',
                         borderColor: '#3498db',
                         backgroundColor: 'rgba(52, 152, 219, 0.1)',
                         borderWidth: 3,
@@ -256,7 +256,7 @@
                         fill: true
                     },
                     {
-                        label: '红色款',
+                        label: '《我本俗人》',
                         borderColor: '#e74c3c',
                         backgroundColor: 'rgba(231, 76, 60, 0.1)',
                         borderWidth: 3,
@@ -285,6 +285,14 @@
                         callbacks: {
                             label: function(context) {
                                 return `${context.dataset.label}: ${context.parsed.y} 件`;
+                            },
+                            title: function(context) {
+                                const date = new Date(context[0].parsed.x);
+                                return date.toLocaleTimeString('zh-CN', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                });
                             }
                         }
                     }
@@ -293,9 +301,10 @@
                     x: {
                         type: 'time',
                         time: {
-                            unit: 'hour',
+                            unit: 'minute',
+                            stepSize: 15,
                             displayFormats: {
-                                hour: 'HH:mm'
+                                minute: 'HH:mm'
                             },
                             tooltipFormat: 'yyyy-MM-dd HH:mm'
                         },
@@ -312,11 +321,16 @@
                             }
                         },
                         grid: {
-                            display: false
+                            display: true
                         },
                         ticks: {
-                            padding: 10
-                        }
+                            padding: 10,
+                            autoSkip: true,
+                            maxTicksLimit: 8,
+                            maxRotation: 0
+                        },
+                        min: new Date().getTime() - 150 * 60 * 1000, // 150分钟前
+                        max: new Date().getTime() // 当前时间
                     },
                     y: {
                         beginAtZero: true,
@@ -358,7 +372,7 @@
             data: {
                 datasets: [
                     {
-                        label: '蓝色款涨幅',
+                        label: '《屋顶着火》涨幅',
                         borderColor: '#3498db',
                         backgroundColor: 'rgba(52, 152, 219, 0.1)',
                         borderWidth: 3,
@@ -370,7 +384,7 @@
                         borderDash: [5, 5] 
                     },
                     {
-                        label: '红色款涨幅',
+                        label: '《我本俗人》涨幅',
                         borderColor: '#e74c3c',
                         backgroundColor: 'rgba(231, 76, 60, 0.1)',
                         borderWidth: 3,
@@ -402,6 +416,13 @@
                             label: function(context) {
                                 const value = context.parsed.y;
                                 return `${context.dataset.label}: ${value > 0 ? '+' + value : value} 件`;
+                            },
+                            title: function(context) {
+                                const date = new Date(context[0].parsed.x);
+                                return date.toLocaleTimeString('zh-CN', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
                             }
                         }
                     }
@@ -410,12 +431,14 @@
                     x: {
                         type: 'time',
                         time: {
-                            unit: 'hour',
-                            displayFormats: {
-                                hour: 'HH:mm'
-                            },
-                            tooltipFormat: 'yyyy-MM-dd HH:mm'
+                        // 修改这里：将单位改为分钟，并设置步长
+                        unit: 'minute',
+                        stepSize: 15,
+                        displayFormats: {
+                            minute: 'HH:mm' // 显示小时和分钟
                         },
+                        tooltipFormat: 'yyyy-MM-dd HH:mm'
+                    },
                         title: {
                             display: true,
                             text: '时间',
@@ -429,10 +452,12 @@
                             }
                         },
                         grid: {
-                            display: false
+                            display: true
                         },
                         ticks: {
-                            padding: 10
+                            padding: 10,
+                            autoSkip: true,
+                            maxTicksLimit: 8
                         }
                     },
                     y: {
@@ -484,74 +509,85 @@
             document.getElementById('last-update').textContent = '数据更新中...';
             document.querySelector('.status-indicator').style.backgroundColor = '#f39c12';
             
-            fetch('/data')
-                .then(response => {
-                    if (!response.ok) throw new Error('网络响应错误');
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('获取到的数据:', data);
-                    
-                    // 确保数据存在
-                    if (!data || !data.blue || !data.red) {
-                        throw new Error('数据格式不正确');
-                    }
-                    
-                    // 更新当前数值
-                    document.getElementById('blue-current').textContent = data.blue.current || 0;
-                    document.getElementById('red-current').textContent = data.red.current || 0;
-                    
-                    // 更新销量趋势图表
-                    salesChart.data.datasets[0].data = data.blue.sales.map((sales, index) => ({
-                        x: new Date(data.blue.timestamps[index]),
-                        y: sales
+            // 同时获取两种数据
+            Promise.all([
+                fetch('/data'),       // 15分钟聚合数据
+                fetch('/realtime-data') // 实时原始数据
+            ])
+            .then(responses => Promise.all(responses.map(res => res.json())))
+            .then(([aggData, realtimeData]) => {
+                console.log('聚合数据:', aggData);
+                console.log('实时数据:', realtimeData);
+                
+                // 更新当前数值
+                document.getElementById('blue-current').textContent = aggData.blue.current || 0;
+                document.getElementById('red-current').textContent = aggData.red.current || 0;
+                
+                // 处理实时数据格式
+                const formatRealtimeData = (data) => {
+                    return data.map(item => ({
+                        x: new Date(item.x),
+                        y: item.y
                     }));
-                    
-                    salesChart.data.datasets[1].data = data.red.sales.map((sales, index) => ({
-                        x: new Date(data.red.timestamps[index]),
-                        y: sales
-                    }));
-                    
-                    salesChart.update();
-                    
-                    // 更新涨幅图表（曲线形式）
-                    if (data.blue_increment && data.red_increment) {
-                        incrementChart.data.datasets[0].data = data.blue_increment.increments.map((inc, index) => ({
-                            x: new Date(data.blue_increment.timestamps[index]),
-                            y: inc
+                };
+                
+                // 更新销量趋势图表 - 使用实时数据
+                salesChart.data.datasets[0].data = formatRealtimeData(realtimeData.blue);
+                salesChart.data.datasets[1].data = formatRealtimeData(realtimeData.red);
+                
+                // 设置X轴范围为最近90分钟
+                const now = new Date();
+                const minTime = new Date(now.getTime() - 150 * 60 * 1000); // 90分钟前
+                salesChart.options.scales.x.min = minTime;
+                salesChart.options.scales.x.max = now;
+                
+                salesChart.update();
+                
+                // 更新涨幅图表 - 使用15分钟聚合数据
+                if (aggData.blue_increment && aggData.red_increment) {
+                    const formatIncrementData = (timestamps, increments) => {
+                        return timestamps.map((ts, index) => ({
+                            x: new Date(ts),
+                            y: increments[index]
                         }));
-                        
-                        incrementChart.data.datasets[1].data = data.red_increment.increments.map((inc, index) => ({
-                            x: new Date(data.red_increment.timestamps[index]),
-                            y: inc
-                        }));
-                        
-                        incrementChart.update();
-                    }
+                    };
                     
-                    // 更新最后更新时间
-                    const updateTime = data.last_updated ? new Date(data.last_updated) : new Date();
-                    document.getElementById('last-update').textContent = 
-                        `最后更新: ${updateTime.toLocaleTimeString()}`;
+                    incrementChart.data.datasets[0].data = formatIncrementData(
+                        aggData.blue_increment.timestamps, 
+                        aggData.blue_increment.increments
+                    );
                     
-                    document.querySelector('.status-indicator').style.backgroundColor = '#2ecc71';
-                })
-                .catch(error => {
-                    console.error('获取数据失败:', error);
-                    document.getElementById('last-update').textContent = '数据加载失败，稍后重试...';
-                    document.querySelector('.status-indicator').style.backgroundColor = '#e74c3c';
+                    incrementChart.data.datasets[1].data = formatIncrementData(
+                        aggData.red_increment.timestamps, 
+                        aggData.red_increment.increments
+                    );
                     
-                    // 5秒后重试
-                    setTimeout(fetchData, 5000);
-                });
+                    incrementChart.update();
+                }
+                
+                // 更新最后更新时间
+                const updateTime = new Date();
+                document.getElementById('last-update').textContent = 
+                    `最后更新: ${updateTime.toLocaleTimeString()}`;
+                
+                document.querySelector('.status-indicator').style.backgroundColor = '#2ecc71';
+            })
+            .catch(error => {
+                console.error('获取数据失败:', error);
+                document.getElementById('last-update').textContent = '数据加载失败，稍后重试...';
+                document.querySelector('.status-indicator').style.backgroundColor = '#e74c3c';
+                
+                // 30秒后重试
+                setTimeout(fetchData, 30000);
+            });
         }
         
         // 初始加载数据
         fetchData();
         updateLastUpdateTime();
         
-        // 每5分钟更新一次（与爬取间隔同步）
-        setInterval(fetchData, 300000);
+        // 每1分钟更新一次
+        setInterval(fetchData, 60000);
         
         // 手动刷新按钮
         document.getElementById('refresh-btn').addEventListener('click', fetchData);
